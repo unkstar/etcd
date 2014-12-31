@@ -62,6 +62,7 @@ type Config struct {
 	Discovery        string   `toml:"discovery" env:"ETCD_DISCOVERY"`
 	Force            bool
 	KeyFile          string   `toml:"key_file" env:"ETCD_KEY_FILE"`
+	CipherSuites     []string `toml:"cipher_suites" env:"ETCD_CIPHER_SUITE"`
 	HTTPReadTimeout  float64  `toml:"http_read_timeout" env:"ETCD_HTTP_READ_TIMEOUT"`
 	HTTPWriteTimeout float64  `toml:"http_write_timeout" env:"ETCD_HTTP_WRITE_TIMEOUT"`
 	Peers            []string `toml:"peers" env:"ETCD_PEERS"`
@@ -78,13 +79,14 @@ type Config struct {
 	VeryVerbose      bool `toml:"very_verbose" env:"ETCD_VERY_VERBOSE"`
 	VeryVeryVerbose  bool `toml:"very_very_verbose" env:"ETCD_VERY_VERY_VERBOSE"`
 	Peer             struct {
-		Addr              string `toml:"addr" env:"ETCD_PEER_ADDR"`
-		BindAddr          string `toml:"bind_addr" env:"ETCD_PEER_BIND_ADDR"`
-		CAFile            string `toml:"ca_file" env:"ETCD_PEER_CA_FILE"`
-		CertFile          string `toml:"cert_file" env:"ETCD_PEER_CERT_FILE"`
-		KeyFile           string `toml:"key_file" env:"ETCD_PEER_KEY_FILE"`
-		HeartbeatInterval int    `toml:"heartbeat_interval" env:"ETCD_PEER_HEARTBEAT_INTERVAL"`
-		ElectionTimeout   int    `toml:"election_timeout" env:"ETCD_PEER_ELECTION_TIMEOUT"`
+		Addr              string   `toml:"addr" env:"ETCD_PEER_ADDR"`
+		BindAddr          string   `toml:"bind_addr" env:"ETCD_PEER_BIND_ADDR"`
+		CAFile            string   `toml:"ca_file" env:"ETCD_PEER_CA_FILE"`
+		CertFile          string   `toml:"cert_file" env:"ETCD_PEER_CERT_FILE"`
+		KeyFile           string   `toml:"key_file" env:"ETCD_PEER_KEY_FILE"`
+		CipherSuites      []string `toml:"cipher_suites" env:"ETCD_PEER_CIPHER_SUITE"`
+		HeartbeatInterval int      `toml:"heartbeat_interval" env:"ETCD_PEER_HEARTBEAT_INTERVAL"`
+		ElectionTimeout   int      `toml:"election_timeout" env:"ETCD_PEER_ELECTION_TIMEOUT"`
 	}
 	strTrace     string `toml:"trace" env:"ETCD_TRACE"`
 	GraphiteHost string `toml:"graphite_host" env:"ETCD_GRAPHITE_HOST"`
@@ -225,7 +227,7 @@ func (c *Config) loadEnv(target interface{}) error {
 
 // Loads configuration from command line flags.
 func (c *Config) LoadFlags(arguments []string) error {
-	var peers, cors, path string
+	var peers, cors, path, cipher_suites, peer_cipher_suites string
 
 	f := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
@@ -254,10 +256,12 @@ func (c *Config) LoadFlags(arguments []string) error {
 	f.StringVar(&c.CAFile, "ca-file", c.CAFile, "")
 	f.StringVar(&c.CertFile, "cert-file", c.CertFile, "")
 	f.StringVar(&c.KeyFile, "key-file", c.KeyFile, "")
+	f.StringVar(&cipher_suites, "cipher-suites", "", "")
 
 	f.StringVar(&c.Peer.CAFile, "peer-ca-file", c.Peer.CAFile, "")
 	f.StringVar(&c.Peer.CertFile, "peer-cert-file", c.Peer.CertFile, "")
 	f.StringVar(&c.Peer.KeyFile, "peer-key-file", c.Peer.KeyFile, "")
+	f.StringVar(&peer_cipher_suites, "peer-cipher-suites", "", "")
 
 	f.Float64Var(&c.HTTPReadTimeout, "http-read-timeout", c.HTTPReadTimeout, "")
 	f.Float64Var(&c.HTTPWriteTimeout, "http-write-timeout", c.HTTPReadTimeout, "")
@@ -326,6 +330,15 @@ func (c *Config) LoadFlags(arguments []string) error {
 	}
 	if cors != "" {
 		c.CorsOrigins = ustrings.TrimSplit(cors, ",")
+	}
+	if cipher_suites != "" {
+		c.CipherSuites = ustrings.TrimSplit(peers, ",")
+	}
+	if peer_cipher_suites != "" {
+		c.Peer.CipherSuites = ustrings.TrimSplit(peers, ",")
+	}
+	if peers != "" {
+		c.Peers = ustrings.TrimSplit(peers, ",")
 	}
 
 	return nil
@@ -418,18 +431,20 @@ func (c *Config) Sanitize() error {
 // EtcdTLSInfo retrieves a TLSInfo object for the etcd server
 func (c *Config) EtcdTLSInfo() *server.TLSInfo {
 	return &server.TLSInfo{
-		CAFile:   c.CAFile,
-		CertFile: c.CertFile,
-		KeyFile:  c.KeyFile,
+		CAFile:       c.CAFile,
+		CertFile:     c.CertFile,
+		KeyFile:      c.KeyFile,
+		CipherSuites: c.CipherSuites,
 	}
 }
 
 // PeerRaftInfo retrieves a TLSInfo object for the peer server.
 func (c *Config) PeerTLSInfo() *server.TLSInfo {
 	return &server.TLSInfo{
-		CAFile:   c.Peer.CAFile,
-		CertFile: c.Peer.CertFile,
-		KeyFile:  c.Peer.KeyFile,
+		CAFile:       c.Peer.CAFile,
+		CertFile:     c.Peer.CertFile,
+		KeyFile:      c.Peer.KeyFile,
+		CipherSuites: c.CipherSuites,
 	}
 }
 

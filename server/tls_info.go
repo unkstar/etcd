@@ -8,11 +8,44 @@ import (
 	"io/ioutil"
 )
 
+var cipherSuitesMap = map[string]uint16{
+	"TLS_RSA_WITH_RC4_128_SHA":                tls.TLS_RSA_WITH_RC4_128_SHA,
+	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+	"TLS_RSA_WITH_AES_128_CBC_SHA":            tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+	"TLS_RSA_WITH_AES_256_CBC_SHA":            tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":        tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":          tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":     tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+}
+
+func ParseCipherSuiteLietrals(literals []string) ([]uint16, error) {
+	var has bool
+	nsymbol := len(literals)
+	if nsymbol == 0 {
+		return nil, nil
+	}
+	symbol := make([]uint16, nsymbol)
+	for i, literal := range literals {
+		symbol[i], has = cipherSuitesMap[literal]
+		if !has {
+			return nil, fmt.Errorf("invalided cipher suite: %s", literal)
+		}
+	}
+	return symbol, nil
+}
+
 // TLSInfo holds the SSL certificates paths.
 type TLSInfo struct {
-	CertFile string `json:"CertFile"`
-	KeyFile  string `json:"KeyFile"`
-	CAFile   string `json:"CAFile"`
+	CertFile     string `json:"CertFile"`
+	KeyFile      string `json:"KeyFile"`
+	CAFile       string `json:"CAFile"`
+	CipherSuites []string
 }
 
 func (info TLSInfo) Scheme() string {
@@ -52,6 +85,12 @@ func (info TLSInfo) ServerConfig() (*tls.Config, error) {
 		cfg.ClientAuth = tls.NoClientCert
 	}
 
+	cipherSuites, err := ParseCipherSuiteLietrals(info.CipherSuites)
+	if err != nil {
+		return nil, err
+	}
+	cfg.CipherSuites = cipherSuites
+
 	return &cfg, nil
 }
 
@@ -78,6 +117,12 @@ func (info TLSInfo) ClientConfig() (*tls.Config, error) {
 
 		cfg.RootCAs = cp
 	}
+
+	cipherSuites, err := ParseCipherSuiteLietrals(info.CipherSuites)
+	if err != nil {
+		return nil, err
+	}
+	cfg.CipherSuites = cipherSuites
 
 	return &cfg, nil
 }
